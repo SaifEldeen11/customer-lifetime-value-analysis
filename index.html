@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Analytics Dashboard | Saifeldeen Ahmed</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & GSAP -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+
+        :root {
+            --coffee: #6F4E37;
+            --coffee-light: #A67B5B;
+            --coffee-bg: #F5F1EE;
+            --navy: #000080;
+            --navy-dark: #000033;
+            --white: #FFFFFF;
+        }
+
+        body {
+            background-color: var(--coffee-bg);
+            color: var(--navy-dark);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .scroll-reveal-text {
+            font-size: clamp(1.8rem, 5vw, 3.5rem);
+            line-height: 1.4;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--navy);
+        }
+
+        .word {
+            display: inline-block;
+            white-space: pre;
+        }
+
+        .split-char {
+            display: inline-block;
+            will-change: transform, opacity;
+        }
+
+        /* Pill Nav Styles */
+        .pill-nav {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            padding: 8px 24px;
+            border-radius: 999px;
+            border: 1px solid rgba(111, 78, 55, 0.1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        }
+
+        .pill-nav a {
+            color: var(--coffee);
+            font-weight: 600;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.3s ease;
+        }
+
+        .pill-nav a:hover {
+            color: var(--navy);
+        }
+
+        .btn-navy {
+            background-color: var(--navy);
+            color: white !important;
+            padding: 6px 16px;
+            border-radius: 999px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 32px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(111, 78, 55, 0.05);
+            border: 1px solid rgba(111, 78, 55, 0.05);
+        }
+
+        .bar-container {
+            position: relative;
+            height: 12px;
+            background: #f1f5f9;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: var(--navy);
+            width: 0%;
+            border-radius: 999px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script>
+        const e = React.createElement;
+        const { useState, useEffect, useRef, useMemo } = React;
+        gsap.registerPlugin(ScrollTrigger);
+
+        // --- Components ---
+        const SplitText = ({ text, className, delay = 40, duration = 1, threshold = 0.1 }) => {
+            const ref = useRef(null);
+            useEffect(() => {
+                const el = ref.current;
+                if (!el) return;
+                const chars = el.querySelectorAll('.split-char');
+                gsap.fromTo(chars, { opacity: 0, y: 50 }, {
+                    opacity: 1, y: 0, duration, ease: "power4.out", stagger: delay / 1000,
+                    scrollTrigger: { trigger: el, start: `top ${100 - (threshold * 100)}%`, once: true }
+                });
+            }, [text]);
+            const splitChars = text.split('').map((char, i) =>
+                e('span', { key: i, className: 'split-char' }, char === ' ' ? '\u00A0' : char)
+            );
+            return e('h1', { ref, className: `inline-block ${className}` }, splitChars);
+        };
+
+        const ScrollReveal = ({ children, baseOpacity = 0, baseRotation = 2 }) => {
+            const ref = useRef(null);
+            const splitText = useMemo(() => {
+                const text = typeof children === 'string' ? children : '';
+                return text.split(/(\s+)/).map((word, i) => {
+                    if (word.match(/^\s+$/)) return word;
+                    return e('span', { key: i, className: 'word' }, word);
+                });
+            }, [children]);
+            useEffect(() => {
+                const el = ref.current;
+                if (!el) return;
+                gsap.fromTo(el, { rotate: baseRotation, transformOrigin: "left center" }, {
+                    rotate: 0, scrollTrigger: { trigger: el, start: 'top bottom', end: 'top 40%', scrub: true }
+                });
+                const words = el.querySelectorAll('.word');
+                gsap.fromTo(words, { opacity: baseOpacity, y: 10 }, {
+                    opacity: 1, y: 0, stagger: 0.02,
+                    scrollTrigger: { trigger: el, start: 'top bottom-=10%', end: 'bottom 60%', scrub: true }
+                });
+            }, [children]);
+            return e('div', { ref, className: 'scroll-reveal py-10' }, e('p', { className: 'scroll-reveal-text' }, splitText));
+        };
+
+        const AnimatedBar = ({ name, value, color }) => {
+            const barRef = useRef(null);
+            useEffect(() => {
+                gsap.to(barRef.current, {
+                    width: `${value}%`,
+                    duration: 1.5,
+                    ease: "power2.out",
+                    scrollTrigger: {
+                        trigger: barRef.current,
+                        start: "top 90%",
+                        once: true
+                    }
+                });
+            }, [value]);
+
+            return e('div', { className: 'mb-8' },
+                e('div', { className: 'flex justify-between mb-2 items-end' },
+                    e('span', { className: 'font-bold text-[#6F4E37] text-sm' }, name),
+                    e('span', { className: 'font-black text-[#000080] text-lg' }, `${value}%`)
+                ),
+                e('div', { className: 'bar-container' },
+                    e('div', {
+                        ref: barRef,
+                        className: 'bar-fill',
+                        style: { backgroundColor: color || '#000080' }
+                    })
+                )
+            );
+        };
+
+        // --- Data ---
+        const featureImportance = [
+            { name: "Monetary Value", value: 39 },
+            { name: "AOV", value: 23 },
+            { name: "Recency", value: 19 },
+            { name: "Tenure Days", value: 12 },
+            { name: "Frequency", value: 7 }
+        ];
+
+        const actions = [
+            { segment: "VIP", obj: "Protect Revenue", act: "Premium support and exclusive rewards", color: "#000080" },
+            { segment: "High Value", obj: "Grow Revenue", act: "Upsell and loyalty campaigns", color: "#6F4E37" },
+            { segment: "Mid Value", obj: "Increase Engagement", act: "Recommendations and promotions", color: "#A67B5B" },
+            { segment: "Low Value", obj: "Reactivate", act: "Email campaigns and discounts", color: "#334155" }
+        ];
+
+        // --- Main App ---
+        const App = () => {
+            return e('div', { className: 'min-h-screen' },
+                // Pill Navigation
+                e('nav', { className: 'pill-nav' },
+                    e('a', { href: '#overview' }, 'Overview'),
+                    e('a', { href: '#insights' }, 'Insights'),
+                    e('a', { href: '#strategy' }, 'Strategy'),
+                    e('a', {
+                        href: 'https://www.linkedin.com/in/saifeldeenahmed/',
+                        target: '_blank',
+                        className: 'btn-navy'
+                    }, 'Connect with Me')
+                ),
+
+                // Hero Section
+                e('section', { id: 'overview', className: 'h-screen flex flex-col items-center justify-center p-10 text-center relative' },
+                    e(SplitText, { text: "Customer Insights", className: "text-6xl md:text-8xl font-black text-[#000080] leading-none mb-2" }),
+                    e(SplitText, { text: "& Strategy", className: "text-6xl md:text-8xl font-black text-[#6F4E37] leading-none mb-8" }),
+                    e('div', { className: 'h-1.5 w-32 bg-[#6F4E37] mb-10 rounded-full' }),
+                    e('p', { className: 'text-xl text-[#000080] font-bold tracking-widest uppercase' }, "Executive Analysis Dashboard"),
+                    e('div', { className: 'mt-24' },
+                        e('svg', { className: 'w-8 h-8 text-[#6F4E37] animate-bounce', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+                            e('path', { strokeLinecap: 'round', strokeLinejoin: 'round', strokeWidth: '2', d: 'M19 14l-7 7m0 0l-7-7m7 7V3' })
+                        )
+                    )
+                ),
+
+                // Reveal Text Section (Insights)
+                e('section', { id: 'insights', className: 'py-20 px-10 max-w-5xl mx-auto' },
+                    e(ScrollReveal, null, "A data-driven deep dive into our customer architecture. We have achieved a balanced 25% distribution across all segments, ensuring a robust foundation for targeted revenue growth.")
+                ),
+
+                // Main Image Section (Strategy)
+                e('section', { id: 'strategy', className: 'py-20 px-10 max-w-6xl mx-auto' },
+                    e('div', { className: 'card' },
+                        e('h3', { className: 'text-3xl font-black text-[#000080] mb-8' }, "Segmentation Architecture"),
+                        e('img', {
+                            src: 'C:\\Users\\merom\\Desktop\\Ai&Datascience\\Customer Lifetime Value\\customer-clv-presentation\\segment_distribution.png',
+                            alt: 'Customer Segmentation Distribution',
+                            className: 'w-full rounded-2xl shadow-lg'
+                        }),
+                        e('p', { className: 'mt-8 text-lg text-slate-500 italic text-center' },
+                            "Visual representation of the uniform distribution across value tiers."
+                        )
+                    )
+                ),
+
+                // Data Dashboard - Three Column Layout with Images
+                e('section', { className: 'py-20 px-10 bg-[#6F4E37]/5' },
+                    e('div', { className: 'max-w-6xl mx-auto' },
+                        e('h3', { className: 'text-4xl font-black text-[#000080] mb-12 text-center' }, "Predictive Value Drivers"),
+                        e('div', { className: 'grid lg:grid-cols-3 gap-8' },
+                            // Column 1: Feature Importance Image
+                            e('div', { className: 'card' },
+                                e('h4', { className: 'text-xs font-black text-[#6F4E37] uppercase tracking-[0.3em] mb-8' }, "Feature Importance"),
+                                e('img', {
+                                    src: 'file:///C:/Users/merom/Desktop/Ai&Datascience/Customer%20Lifetime%20Value/customer-clv-presentation/feature_importance.png',
+                                    alt: 'Feature Importance Chart',
+                                    className: 'w-full rounded-2xl shadow-md'
+                                })
+                            ),
+                            // Column 2: Feature Importance Charts
+                            e('div', { className: 'card' },
+                                e('h4', { className: 'text-xs font-black text-[#6F4E37] uppercase tracking-[0.3em] mb-8' }, "Key Feature Impact"),
+                                featureImportance.map((item, i) =>
+                                    e(AnimatedBar, { key: i, name: item.name, value: item.value })
+                                )
+                            ),
+                            // Column 3: Strategic Summary
+                            e('div', { className: 'card flex flex-col justify-center' },
+                                e('h4', { className: 'text-xs font-black text-[#6F4E37] uppercase tracking-[0.3em] mb-6' }, "Strategic Summary"),
+                                e('p', { className: 'text-2xl font-bold text-[#000080] leading-tight mb-8' },
+                                    "Maximizing Monetary Value is our primary lever for Q4 success, contributing to nearly 40% of our predictive accuracy."
+                                ),
+                                e('div', { className: 'space-y-6' },
+                                    e('div', { className: 'flex items-center gap-4' },
+                                        e('div', { className: 'w-12 h-12 rounded-full bg-[#000080] flex items-center justify-center text-white font-bold flex-shrink-0' }, "1"),
+                                        e('p', { className: 'font-medium text-slate-700' }, "VIP Protection Program focusing on high-monetary accounts.")
+                                    ),
+                                    e('div', { className: 'flex items-center gap-4' },
+                                        e('div', { className: 'w-12 h-12 rounded-full bg-[#6F4E37] flex items-center justify-center text-white font-bold flex-shrink-0' }, "2"),
+                                        e('p', { className: 'font-medium text-slate-700' }, "AOV Optimization through personalized bundling strategies.")
+                                    ),
+                                    e('div', { className: 'flex items-center gap-4' },
+                                        e('div', { className: 'w-12 h-12 rounded-full bg-[#A67B5B] flex items-center justify-center text-white font-bold flex-shrink-0' }, "3"),
+                                        e('p', { className: 'font-medium text-slate-700' }, "Retention focus based on tenure and recency signals.")
+                                    )
+                                )
+                            )
+                        )
+                    )
+                ),
+
+                // Action Table
+                e('section', { className: 'py-32 px-10 max-w-6xl mx-auto' },
+                    e('h2', { className: 'text-4xl font-black text-[#000080] mb-12' }, "Operational Roadmap"),
+                    e('div', { className: 'overflow-hidden rounded-3xl border border-slate-200 shadow-xl' },
+                        e('table', { className: 'w-full text-left' },
+                            e('thead', null, e('tr', { className: 'bg-[#000080] text-white' },
+                                e('th', { className: 'px-8 py-6' }, "Segment"),
+                                e('th', { className: 'px-8 py-6' }, "Objective"),
+                                e('th', { className: 'px-8 py-6' }, "Action")
+                            )),
+                            e('tbody', null, actions.map((row, i) => e('tr', { key: i, className: 'border-b hover:bg-slate-50' },
+                                e('td', { className: 'px-8 py-6' },
+                                    e('span', { className: 'px-4 py-1.5 rounded-full text-[10px] font-black uppercase text-white', style: { backgroundColor: row.color } }, row.segment)
+                                ),
+                                e('td', { className: 'px-8 py-6 font-bold text-[#000080]' }, row.obj),
+                                e('td', { className: 'px-8 py-6 text-slate-500' }, row.act)
+                            )))
+                        )
+                    )
+                ),
+
+                // Footer
+                e('footer', { className: 'py-20 bg-[#000033] text-white px-10 text-center' },
+                    e('p', { className: 'opacity-40 text-xs font-bold tracking-widest' }, "PREPARED BY SAIFELDEEN AHMED | © 2026 STRATEGIC ANALYTICS")
+                )
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(e(App));
+    </script>
+</body>
+
+</html>
